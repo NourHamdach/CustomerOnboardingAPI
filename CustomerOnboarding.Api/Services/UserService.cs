@@ -82,7 +82,8 @@ namespace CustomerOnboarding.Api.Services
                 {
                     ICNumber = request.ICNumber,
                     CustomerName = request.CustomerName,
-                    MobileNumber = request.MobileNumber,
+                    PhoneCode = request.PhoneCode,
+                    PhoneNumber = request.PhoneNumber,
                     EmailAddress = request.EmailAddress,
                     VerifiedEmail = false,
                     VerifiedMobile = false,
@@ -97,7 +98,8 @@ namespace CustomerOnboarding.Api.Services
             {
                 // User exists but not fully verified - allow update
                 user.CustomerName = request.CustomerName;
-                user.MobileNumber = request.MobileNumber;
+                user.PhoneCode = request.PhoneCode;
+                user.PhoneNumber = request.PhoneNumber;
                 user.EmailAddress = request.EmailAddress;
                 user.LastUpdated = DateTime.UtcNow;
             }
@@ -109,7 +111,8 @@ namespace CustomerOnboarding.Api.Services
                 UserId = user.UserId,
                 ICNumber = user.ICNumber,
                 CustomerName = user.CustomerName,
-                MobileNumber = user.MobileNumber,
+                PhoneCode = user.PhoneCode,
+                PhoneNumber = user.PhoneNumber,
                 EmailAddress = user.EmailAddress,
                 BiometricEnabled = user.BiometricEnabled,
                 RegistrationDate = user.RegistrationDate
@@ -140,13 +143,13 @@ public async Task<OTPResponse> SendOTPAsync(SendOTPRequest request, string? newC
     {
         // User is fully verified, this is migration flow
         flow = OTPFlow.Migration;
-        target = request.VerificationType == "EMAIL" ? user.EmailAddress : user.MobileNumber;
+        target = request.VerificationType == "EMAIL" ? user.EmailAddress : $"{user.PhoneCode}{user.PhoneNumber}";
     }
     else
     {
         // User is not fully verified, this is registration flow
         flow = OTPFlow.Registration;
-        target = request.VerificationType == "EMAIL" ? user.EmailAddress : user.MobileNumber;
+        target = request.VerificationType == "EMAIL" ? user.EmailAddress : $"{user.PhoneCode}{user.PhoneNumber}";
     }
 
     if (string.IsNullOrEmpty(target))
@@ -179,7 +182,8 @@ public async Task<OTPResponse> SendOTPAsync(SendOTPRequest request, string? newC
         IsSuccess = true,
         Message = "OTP sent successfully",
         ObfuscatedTarget = obfuscated,
-        AttemptId = otpAttempt.AttemptId
+        AttemptId = otpAttempt.AttemptId,
+        OTPCode = otpCode + " NOTE: Only for testing - it will be Removed in production from the response "
     };
 }
 
@@ -246,7 +250,13 @@ public async Task<OTPResponse> VerifyOTPAsync(VerifyOTPRequest request)
             }
             else
             {
-                user.MobileNumber = otpAttempt.TargetValue;
+                // For mobile, split the target value into phone code and number
+                // Assuming format: +60123456789
+                var fullNumber = otpAttempt.TargetValue;
+                var phoneCode = fullNumber.Substring(0, fullNumber.Length - 10); // Get phone code part
+                var phoneNumber = fullNumber.Substring(fullNumber.Length - 10); // Get last 10 digits
+                user.PhoneCode = phoneCode;
+                user.PhoneNumber = phoneNumber;
                 user.VerifiedMobile = true;
             }
             user.LastUpdated = DateTime.UtcNow;
@@ -345,14 +355,32 @@ public async Task<OTPResponse> VerifyOTPAsync(VerifyOTPRequest request)
                 };
             }
 
-            // Return obfuscated contact info for verification
+            // Automatically send OTP to mobile number using existing SendOTP logic
+            var otpResponse = await SendOTPAsync(new SendOTPRequest
+            {
+                UserId = user.UserId,
+                VerificationType = "MOBILE"
+            });
+
+            if (!otpResponse.IsSuccess)
+            {
+                return new MigrationResponse
+                {
+                    IsSuccess = false,
+                    Message = otpResponse.Message
+                };
+            }
+
+            // Return obfuscated contact info with OTP details
             return new MigrationResponse
             {
                 IsSuccess = true,
-                Message = "Migration initiated. Please verify your identity.",
+                Message = $"Migration initiated. OTP sent to {otpResponse.ObfuscatedTarget}. Please verify to continue.",
                 UserId = user.UserId,
-                ObfuscatedMobile = ObfuscationHelper.ObfuscateMobile(user.MobileNumber),
-                ObfuscatedEmail = ObfuscationHelper.ObfuscateEmail(user.EmailAddress)
+                ObfuscatedMobile = otpResponse.ObfuscatedTarget,
+                ObfuscatedEmail = ObfuscationHelper.ObfuscateEmail(user.EmailAddress),
+                AttemptId = otpResponse.AttemptId,
+                OTPCode = otpResponse.OTPCode // NOTE: Only for testing - Remove in production
             };
         }
 
@@ -404,7 +432,8 @@ public async Task<OTPResponse> VerifyOTPAsync(VerifyOTPRequest request)
                 UserId = u.UserId,
                 ICNumber = u.ICNumber,
                 CustomerName = u.CustomerName,
-                MobileNumber = u.MobileNumber,
+                PhoneCode = u.PhoneCode,
+                PhoneNumber = u.PhoneNumber,
                 EmailAddress = u.EmailAddress,
                 BiometricEnabled = u.BiometricEnabled,
                 RegistrationDate = u.RegistrationDate

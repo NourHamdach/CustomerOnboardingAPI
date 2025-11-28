@@ -1,28 +1,47 @@
+using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using CustomerOnboarding.Api.Models;
 
 namespace CustomerOnboarding.Api.DTOs
 {
-    // Request for sending OTP based on UserId
+    /// <summary>
+    /// Request for sending OTP to user's email or mobile
+    /// </summary>
  public class SendOTPRequest
 {
+    /// <summary>
+    /// User ID obtained from registration
+    /// </summary>
     [Required]
     public int UserId { get; set; }
 
+    /// <summary>
+    /// Verification channel - Must be either 'EMAIL' or 'MOBILE' (case-sensitive)
+    /// </summary>
+    /// <example>EMAIL</example>
     [Required]
     [RegularExpression("^(EMAIL|MOBILE)$", ErrorMessage = "Must specify EMAIL or MOBILE.")]
-    public string VerificationType { get; set; } // CHANNEL SELECTION
+    public string VerificationType { get; set; } = string.Empty;
 }
 
-    // Request for verifying OTP
+    /// <summary>
+    /// Request for verifying OTP code
+    /// </summary>
    public class VerifyOTPRequest
 {
+    /// <summary>
+    /// Attempt ID received from SendOTP response
+    /// </summary>
     [Required]
     public int AttemptId { get; set; }
 
+    /// <summary>
+    /// 4-digit OTP code sent to user's email or mobile
+    /// </summary>
+    /// <example>1234</example>
     [Required]
     [StringLength(4, MinimumLength = 4)]
-    public string OTPCode { get; set; }
+    public string OTPCode { get; set; } = string.Empty;
 }
 
     // Response for OTP sending/verifying
@@ -32,6 +51,7 @@ namespace CustomerOnboarding.Api.DTOs
     public string Message { get; set; } = string.Empty;
     public string? ObfuscatedTarget { get; set; } // for UI
     public int? AttemptId { get; set; } // <-- added
+    public string? OTPCode { get; set; } // NOTE: Only for testing - Remove in production
 }
 
     // Request for changing email during migration
