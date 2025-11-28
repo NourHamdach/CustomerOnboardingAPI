@@ -17,14 +17,15 @@ ASP.NET Core 8.0 REST API for customer onboarding with OTP verification.
 - **Framework:** ASP.NET Core 8.0
 - **Database:** Microsoft SQL Server
 - **ORM:** Entity Framework Core 8.0.11
+- **Security:** BCrypt.Net-Next 4.0.3 for PIN hashing
 - **Pattern:** Repository Pattern with Dependency Injection
 
 ## Database Schema
 
 ### Tables
-- **Users** - Main user information with verification status
-- **UserSecurity** - PIN storage
-- **OTPAttempts** - OTP codes with flow tracking
+- **Users** - Main user information with verification status 
+- **UserSecurity** - Securely stores BCrypt-hashed PINs with salt
+- **OTPAttempts** - OTP codes with flow tracking (Registration, Migration, ChangeEmail)
 
 ## API Endpoints
 
@@ -589,15 +590,18 @@ For users who are already fully registered and want to migrate or verify their i
 
 ## Security Features
 
-- OTP expiration (5 minutes)
-- Email format validation
-- Phone code validation (+1-3 digits)
-- Phone number validation (4-15 digits)
-- PIN must be 6 digits (numbers only)
-- IC number must be exactly 12 digits
-- Contact changes require OTP verification
-- Migration requires full verification
-- Server-side flow determination
+- **PIN Security:** BCrypt hashing with automatic salt generation (PINs are never stored in plain text)
+- **OTP Security:** 4-digit codes expire after 5 minutes
+- **Input Validation:**
+  - Email format validation
+  - Phone code validation (+1-3 digits per E.164 standard)
+  - Phone number validation (4-15 digits)
+  - PIN must be exactly 6 digits (numbers only)
+  - IC number must be exactly 12 digits
+- **Verification Requirements:**
+  - Contact changes require OTP verification
+  - Migration requires full verification (email + mobile)
+  - Server-side flow determination prevents bypass
 
 ## Project Structure
 
@@ -609,7 +613,16 @@ CustomerOnboarding.Api/
 ├── Models/            # Entity models
 ├── Repositories/      # Data access layer
 ├── Services/          # Business logic
-└── Utilities/         # Helper functions
+├── Utilities/         # Helper functions (Hashing, Obfuscation)
+└── Migrations/        # Database schema version control
 ```
+
+## Dependencies
+
+- **Microsoft.EntityFrameworkCore** (8.0.11) - ORM
+- **Microsoft.EntityFrameworkCore.SqlServer** (8.0.11) - SQL Server provider
+- **Microsoft.EntityFrameworkCore.Design** (8.0.11) - Migration tools
+- **BCrypt.Net-Next** (4.0.3) - Secure password/PIN hashing
+- **Swashbuckle.AspNetCore** (6.5.0) - Swagger/OpenAPI documentation
 
 
