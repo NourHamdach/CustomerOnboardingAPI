@@ -299,20 +299,23 @@ public async Task<OTPResponse> VerifyOTPAsync(VerifyOTPRequest request)
             var user = await _userRepo.GetByIdAsync(userId);
             if (user == null) return false;
 
+            // Hash the PIN before storing
+            string hashedPIN = HashingHelper.HashPIN(pin);
+
             var security = await _securityRepo.GetByUserIdAsync(user.UserId);
             if (security == null)
             {
                 security = new UserSecurity
                 {
                     UserId = user.UserId,
-                    HashedPIN = pin, // TODO: Hash this in production
+                    HashedPIN = hashedPIN,
                     PINLastUpdated = DateTime.UtcNow
                 };
                 await _securityRepo.AddAsync(security);
             }
             else
             {
-                security.HashedPIN = pin; // TODO: Hash this in production
+                security.HashedPIN = hashedPIN;
                 security.PINLastUpdated = DateTime.UtcNow;
             }
             await _securityRepo.SaveChangesAsync();
